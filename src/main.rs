@@ -4,6 +4,7 @@ use actix_web::web::Bytes;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use dotenv::dotenv;
 use mime_guess::from_path;
+use rand::Rng;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
@@ -79,7 +80,18 @@ async fn search_video(term: &String) -> Result<PexelsResponse, reqwest::Error> {
 }
 
 async fn video_stream() -> HttpResponse {
-    let response = search_video(&"código".to_string()).await.unwrap();
+    let terms = vec![
+        "código",
+        "natureza",
+        "tecnologia",
+        "academia",
+        "esportes",
+        "música",
+    ];
+    let mut rng = rand::thread_rng();
+    let rand_index = rng.gen_range(0..terms.len());
+    let term = terms[rand_index];
+    let response = search_video(&term.to_string()).await.unwrap();
     let first_video = &response.videos[0];
 
     let link = &first_video.video_files[0].link;

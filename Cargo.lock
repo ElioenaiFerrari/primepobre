@@ -1096,6 +1096,7 @@ dependencies = [
  "actix-web",
  "dotenv",
  "mime_guess",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
