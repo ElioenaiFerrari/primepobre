@@ -80,14 +80,7 @@ async fn search_video(term: &String) -> Result<PexelsResponse, reqwest::Error> {
 }
 
 async fn video_stream() -> HttpResponse {
-    let terms = vec![
-        "código",
-        "natureza",
-        "tecnologia",
-        "academia",
-        "esportes",
-        "música",
-    ];
+    let terms = vec!["natureza", "basquete", "esportes"];
     let mut rng = rand::thread_rng();
     let rand_index = rng.gen_range(0..terms.len());
     let term = terms[rand_index];
