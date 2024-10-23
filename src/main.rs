@@ -79,13 +79,13 @@ async fn search_video(term: &String) -> Result<PexelsResponse, reqwest::Error> {
 }
 
 async fn video_stream() -> HttpResponse {
-    let response = search_video(&"natureza".to_string()).await.unwrap();
+    let response = search_video(&"código".to_string()).await.unwrap();
     let first_video = &response.videos[0];
 
     let link = &first_video.video_files[0].link;
     let mime_type = &first_video.video_files[0].file_type;
     let client = Client::new();
-    let mut response = match client.get(link).send().await {
+    let response = match client.get(link).send().await {
         Ok(response) => response,
         Err(_) => return HttpResponse::NotFound().body("Failed to fetch video"),
     };
@@ -97,7 +97,7 @@ async fn video_stream() -> HttpResponse {
     // Determina o tipo MIME do arquivo de vídeo
 
     // Cria um canal para enviar os dados de forma assíncrona
-    let (tx, mut rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
 
     // Cria uma task assíncrona para ler e enviar o vídeo por pedaços (chunks)
     actix_web::rt::spawn(async move {
