@@ -16,6 +16,16 @@ services:
     networks:
       - metrics
 
+  loki:
+    image: grafana/loki
+    container_name: loki
+    hostname: loki
+    restart: unless-stopped
+    ports:
+      - 3100:3100
+    networks:
+      - metrics
+
   grafana:
     image: grafana/grafana
     container_name: grafana
@@ -27,6 +37,9 @@ services:
       - 3000:3000
     networks:
       - metrics
+    depends_on:
+      - prometheus
+      - loki
 
 networks:
   metrics:

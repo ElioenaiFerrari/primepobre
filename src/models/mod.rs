@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Movie {
     pub id: String,
     pub title: String,
@@ -12,7 +12,7 @@ pub struct Movie {
     pub genre: String,
 }
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Serie {
     pub id: String,
     pub title: String,
@@ -22,7 +22,7 @@ pub struct Serie {
     pub seasons: Vec<Season>,
 }
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Season {
     pub id: String,
     pub serie_id: String,
@@ -31,7 +31,7 @@ pub struct Season {
     pub number: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Episode {
     pub id: String,
     pub season_id: String,

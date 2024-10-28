@@ -1,10 +1,17 @@
 mod models;
+use std::collections::HashMap;
+
 use actix_cors::Cors;
 use actix_files::Files;
+use actix_web_prometheus::PrometheusMetricsBuilder;
 use models::*;
 
 use actix_web::{
-    get, http::header::{HeaderValue, RANGE}, middleware::Logger, web::{scope, Data, Path}, App, HttpRequest, HttpResponse, HttpServer, Responder
+    get,
+    http::header::{HeaderValue, RANGE},
+    middleware::Logger,
+    web::{scope, Data, Path},
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use reqwest::Client;
 use tokio_stream::StreamExt;
@@ -144,6 +151,13 @@ async fn main() -> std::io::Result<()> {
     ];
 
     let state = State { movies, series };
+    let mut labels = HashMap::new();
+    labels.insert("service".to_string(), "primepobre".to_string());
+    let prometheus = PrometheusMetricsBuilder::new("api")
+        .endpoint("/metrics")
+        .const_labels(labels)
+        .build()
+        .unwrap();
     HttpServer::new(move || {
         App::new()
             .wrap(
@@ -152,7 +166,10 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_method()
                     .allow_any_origin(),
             )
-            .wrap(Logger::new("%a %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\""))
+            .wrap(prometheus.clone())
+            .wrap(Logger::new(
+                "%a %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\"",
+            ))
             .app_data(Data::new(state.clone()))
             .service(
                 scope("/api/v1")
