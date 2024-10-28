@@ -42,10 +42,10 @@
 
     function onClick(
       id,
-      type,
+      source,
       mimeType
     ) {
-      window.location.href = `./stream.html?id=${id}&type=${type}&mime_type=${mimeType}`;
+      window.location.href = `./stream.html?id=${id}&source=${source}&mime_type=${mimeType}`;
     }
 
     async function fetchData() {
