@@ -42,7 +42,7 @@
       };
     }
 
-    async function renderVideo({ id, source, mimeType, thumbnailUrl }) {
+    function renderVideo({ id, source, mimeType, thumbnailUrl }) {
       const streamUrl = `http://localhost:4000/api/v1/${source}/${id}/stream`;
       const videoContainer = document.getElementById('video-container');
       const video = document.getElementById('movie');
@@ -52,7 +52,7 @@
       video.load()
     }
 
-    await renderVideo(getQueryParams());
+    renderVideo(getQueryParams());
   </script>
 </body>
 
