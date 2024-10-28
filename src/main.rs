@@ -1,7 +1,18 @@
 mod models;
+use actix_cors::Cors;
 use models::*;
 
-use actix_web::{web::Data, App, HttpServer};
+use actix_web::{get, web::{scope, Data}, App, HttpResponse, HttpServer, Responder};
+
+#[get("/movies")]
+async fn get_movies(state: Data<State>) -> impl Responder {
+    HttpResponse::Ok().json(&state.movies)
+}
+
+#[get("/series")]
+async fn get_series(state: Data<State>) -> impl Responder {
+    HttpResponse::Ok().json(&state.series)
+}
 
 #[derive(Debug, Clone)]
 struct State {
@@ -57,8 +68,22 @@ async fn main() -> std::io::Result<()> {
     ];
 
     let state = State { movies, series };
-    HttpServer::new(move || App::new().app_data(Data::new(state.clone())))
-        .bind(("0.0.0.0", 4000))?
-        .run()
-        .await
+    HttpServer::new(move || {
+        App::new()
+            .wrap(
+                Cors::default()
+                    .allow_any_header()
+                    .allow_any_method()
+                    .allow_any_origin(),
+            )
+            .app_data(Data::new(state.clone()))
+            .service(
+                scope("/api/v1")
+                    .service(get_movies)
+                    .service(get_series),
+            )
+    })
+    .bind(("0.0.0.0", 4000))?
+    .run()
+    .await
 }
