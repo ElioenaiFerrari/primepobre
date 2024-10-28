@@ -14,7 +14,8 @@ async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 #[get("/movies/{id}")]
-async fn get_movie(state: Data<State>, id: Path<String>) -> impl Responder {
+async fn get_movie(state: Data<State>, path: Path<String>) -> impl Responder {
+    let id = path.into_inner();
     let movie = state.movies.iter().find(|m| m.id == id.to_string());
     match movie {
         Some(m) => HttpResponse::Ok().json(m),
@@ -90,7 +91,12 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_origin(),
             )
             .app_data(Data::new(state.clone()))
-            .service(scope("/api/v1").service(get_movies).service(get_series))
+            .service(
+                scope("/api/v1")
+                    .service(get_movies)
+                    .service(get_series)
+                    .service(get_movie),
+            )
             .service(Files::new("/", "public").show_files_listing())
     })
     .bind(("0.0.0.0", 4000))?
