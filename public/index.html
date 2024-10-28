@@ -4,11 +4,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Prime Pobre</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .bg-cyan-900 {
+      background-color: #164e63;
+    }
+
+    .text-cyan-400 {
+      color: #22d3ee;
+    }
+  </style>
 </head>
 
-<body>
+<body class="bg-gray-900 text-white">
+  <header class="bg-cyan-900 p-4">
+    <h1 class="text-3xl font-bold text-center text-cyan-400">Prime Pobre</h1>
+  </header>
 
+  <main class="p-4">
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Movies</h2>
+      <div id="movies" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Movie items will be rendered here -->
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Series</h2>
+      <div id="series" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Series items will be rendered here -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function fetchData() {
+      const moviesResponse = await fetch('http://localhost:4000/api/v1/movies');
+      const seriesResponse = await fetch('http://localhost:4000/api/v1/series');
+      const movies = await moviesResponse.json();
+      const series = await seriesResponse.json();
+
+      renderMovies(movies);
+      renderSeries(series);
+    }
+
+    function renderMovies(movies) {
+      const moviesContainer = document.getElementById('movies');
+      movies.forEach(movie => {
+        const movieItem = `
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <img src="${movie.thumbnail_url}" alt="${movie.title} Thumbnail" class="w-full h-48 object-cover rounded-lg mb-4">
+            <h3 class="text-xl font-bold">${movie.title}</h3>
+            <p class="text-gray-400">${movie.description}</p>
+          </div>
+        `;
+        moviesContainer.innerHTML += movieItem;
+      });
+    }
+
+    function renderSeries(series) {
+      const seriesContainer = document.getElementById('series');
+      series.forEach(serie => {
+        const serieItem = `
+          <div class="bg-gray-800 p-4 rounded-lg">
+            <img src="${serie.thumbnail_url}" alt="${serie.title} Thumbnail" class="w-full h-48 object-cover rounded-lg mb-4">
+            <h3 class="text-xl font-bold">${serie.title}</h3>
+            <p class="text-gray-400">${serie.description}</p>
+          </div>
+        `;
+        seriesContainer.innerHTML += serieItem;
+      });
+    }
+
+    fetchData();
+  </script>
 </body>
 
 </html>

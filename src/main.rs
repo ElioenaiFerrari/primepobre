@@ -82,8 +82,8 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_origin(),
             )
             .app_data(Data::new(state.clone()))
-            .service(Files::new("/", "public").show_files_listing())
             .service(scope("/api/v1").service(get_movies).service(get_series))
+            .service(Files::new("/", "public").show_files_listing())
     })
     .bind(("0.0.0.0", 4000))?
     .run()
