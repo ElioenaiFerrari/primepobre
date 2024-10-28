@@ -26,7 +26,7 @@
     <section class="mb-8">
       <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Streaming</h2>
       <div id="video-container" class="flex justify-center">
-        <!-- Video player will be rendered here -->
+        <video id="movie" controls autoplay class="max-w-full"></video>
       </div>
     </section>
   </main>
@@ -38,20 +38,18 @@
         id: params.get('id'),
         source: params.get('source'),
         mimeType: params.get('mime_type'),
+        thumbnailUrl: params.get('thumbnail_url'),
       };
     }
 
-    async function renderVideo({ id, source, mimeType }) {
+    async function renderVideo({ id, source, mimeType, thumbnailUrl }) {
       const streamUrl = `http://localhost:4000/api/v1/${source}/${id}/stream`;
-
-      // fetch chunks and put in video
       const videoContainer = document.getElementById('video-container');
-      const video = document.createElement('video');
-      video.setAttribute('controls', '');
+      const video = document.getElementById('movie');
+      video.poster = thumbnailUrl;
+      video.src = streamUrl
 
-      const source = document.createElement('source');
-      source.setAttribute('src', streamUrl);
-      source.setAttribute('type', mimeType);
+      video.load()
     }
 
     await renderVideo(getQueryParams());
