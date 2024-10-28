@@ -1,8 +1,13 @@
 mod models;
 use actix_cors::Cors;
+use actix_files::Files;
 use models::*;
 
-use actix_web::{get, web::{scope, Data}, App, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    get,
+    web::{scope, Data},
+    App, HttpResponse, HttpServer, Responder,
+};
 
 #[get("/movies")]
 async fn get_movies(state: Data<State>) -> impl Responder {
@@ -77,11 +82,8 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_origin(),
             )
             .app_data(Data::new(state.clone()))
-            .service(
-                scope("/api/v1")
-                    .service(get_movies)
-                    .service(get_series),
-            )
+            .service(Files::new("/", "public").show_files_listing())
+            .service(scope("/api/v1").service(get_movies).service(get_series))
     })
     .bind(("0.0.0.0", 4000))?
     .run()
