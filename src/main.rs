@@ -5,7 +5,7 @@ use models::*;
 
 use actix_web::{
     get,
-    http::header::RANGE,
+    http::header::{HeaderValue, RANGE},
     web::{scope, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -37,7 +37,7 @@ async fn get_movie(state: Data<State>, path: Path<String>, req: HttpRequest) -> 
             };
 
             // Make the request to the remote video URL with the range header
-            let mut response = client
+            let response = client
                 .get(video_url)
                 .header("Range", range.unwrap_or(""))
                 .send()
