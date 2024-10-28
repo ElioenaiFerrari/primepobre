@@ -4,10 +4,7 @@ use actix_files::Files;
 use models::*;
 
 use actix_web::{
-    get,
-    http::header::{HeaderValue, RANGE},
-    web::{scope, Data, Path},
-    App, HttpRequest, HttpResponse, HttpServer, Responder,
+    get, http::header::{HeaderValue, RANGE}, middleware::Logger, web::{scope, Data, Path}, App, HttpRequest, HttpResponse, HttpServer, Responder
 };
 use reqwest::Client;
 use tokio_stream::StreamExt;
@@ -39,7 +36,7 @@ async fn get_movie(state: Data<State>, path: Path<String>, req: HttpRequest) -> 
             // Make the request to the remote video URL with the range header
             let response = client
                 .get(video_url)
-                .header("Range", range.unwrap_or(""))
+                .header("Range", range.unwrap_or("bytes=0-"))
                 .send()
                 .await
                 .map_err(|_| HttpResponse::InternalServerError().finish())
@@ -99,6 +96,8 @@ struct State {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
     let series = vec![
         Serie{
             id: "1".to_string(),
@@ -153,6 +152,7 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_method()
                     .allow_any_origin(),
             )
+            .wrap(Logger::new("%a %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\""))
             .app_data(Data::new(state.clone()))
             .service(
                 scope("/api/v1")
