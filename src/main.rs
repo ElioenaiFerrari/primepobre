@@ -158,7 +158,8 @@ async fn main() -> std::io::Result<()> {
                 scope("/api/v1")
                     .service(get_movies)
                     .service(get_series)
-                    .service(get_movie),
+                    .service(get_movie)
+                    .service(stream_movie),
             )
             .service(Files::new("/", "public").show_files_listing())
     })
