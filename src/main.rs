@@ -5,20 +5,83 @@ use models::*;
 
 use actix_web::{
     get,
+    http::header::RANGE,
     web::{scope, Data, Path},
-    App, HttpResponse, HttpServer, Responder,
+    App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use reqwest::Client;
+use tokio_stream::StreamExt;
 
 #[get("/movies")]
 async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 #[get("/movies/{id}")]
-async fn get_movie(state: Data<State>, path: Path<String>) -> impl Responder {
+async fn get_movie(state: Data<State>, path: Path<String>, req: HttpRequest) -> impl Responder {
     let id = path.into_inner();
     let movie = state.movies.iter().find(|m| m.id == id.to_string());
     match movie {
-        Some(m) => HttpResponse::Ok().json(m),
+        Some(m) => {
+            let video_url = &m.video_url;
+            let mime_type = &m.mime_type;
+
+            // Create a reqwest client
+            let client = Client::new();
+
+            // Get the range header if present
+            let range_header = req.headers().get(RANGE);
+            let range = if let Some(range_header) = range_header {
+                range_header.to_str().ok()
+            } else {
+                None
+            };
+
+            // Make the request to the remote video URL with the range header
+            let mut response = client
+                .get(video_url)
+                .header("Range", range.unwrap_or(""))
+                .send()
+                .await
+                .map_err(|_| HttpResponse::InternalServerError().finish())
+                .unwrap();
+
+            if !response.status().is_success() {
+                return HttpResponse::NotFound().finish();
+            }
+
+            // Get the content range from the response
+            let content_range = response.headers().get("Content-Range").cloned();
+
+            // Create a stream of the response body
+            let stream = response.bytes_stream();
+
+            // Build the response
+            let mut http_response = HttpResponse::PartialContent()
+                .content_type(mime_type.clone())
+                .streaming(stream);
+
+            if let Some(content_range) = content_range {
+                let actix_header_value =
+                    HeaderValue::from_str(&content_range.to_str().unwrap()).unwrap();
+                http_response
+                    .headers_mut()
+                    .insert("Content-Range".parse().unwrap(), actix_header_value);
+            }
+
+            http_response
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
+#[get("/movies/{id}/stream")]
+async fn stream_movie(state: Data<State>, path: Path<String>) -> impl Responder {
+    let id = path.into_inner();
+    let movie = state.movies.iter().find(|m| m.id == id.to_string());
+    match movie {
+        Some(m) => HttpResponse::Ok()
+            .content_type(m.mime_type.clone())
+            .body(m.video_url.clone()),
         None => HttpResponse::NotFound().finish(),
     }
 }
