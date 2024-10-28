@@ -3,62 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prime Pobre - Stream</title>
+    <title>Document</title>
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
       rel="stylesheet"
     />
-    <style>
-      .bg-cyan-900 {
-        background-color: #164e63;
-      }
-
-      .text-cyan-400 {
-        color: #22d3ee;
-      }
-    </style>
   </head>
-
   <body class="bg-gray-900 text-white">
-    <header class="bg-cyan-900 p-4">
-      <h1 class="text-3xl font-bold text-center text-cyan-400">Prime Pobre</h1>
-    </header>
-
-    <main class="p-4">
-      <section class="mb-8">
-        <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Streaming</h2>
-        <div id="movie-container" class="flex justify-center">
-          <video id="movie" controls autoplay class="max-w-full"></video>
-        </div>
-      </section>
-    </main>
+    <div class="flex items-center justify-center min-h-screen">
+      <video
+        id="movie-video"
+        controls
+        autoplay
+        class="w-full max-w-4xl rounded-lg shadow-lg max-h-96"
+      >
+        Seu navegador não suporta o elemento de vídeo.
+      </video>
+    </div>
 
     <script>
-      function getQueryParams() {
-        const params = new URLSearchParams(window.location.search);
-        return {
-          id: params.get('id'),
-          source: params.get('source'),
-          mimeType: params.get('mime_type'),
-          thumbnailUrl: params.get('thumbnail_url'),
-        };
+      // Função para obter parâmetros da query string pelo nome
+      function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
       }
 
-      function renderVideo({ id, source, mimeType, thumbnailUrl }) {
-        if (!id || !source) {
-          console.error('Missing required parameters: id or source');
-          return;
-        }
-        const streamUrl = `http://localhost:4000/api/v1/${source}/${id}/stream`;
-        const videoContainer = document.getElementById('movie-container');
-        const video = document.getElementById('movie');
-        video.poster = thumbnailUrl;
-        video.src = streamUrl;
+      // Obter o ID do filme da query string "id"
+      const movieId = getQueryParam('id');
+      const mimeType = getQueryParam('mimeType');
+      const source = getQueryParam('source');
+      const thumbnailUrl = getQueryParam('thumbnail_url');
 
-        video.load();
-      }
+      // Definir a URL do vídeo se o movieId estiver disponível
+      const videoElement = document.getElementById('movie-video');
+      videoElement.poster = thumbnailUrl;
 
-      renderVideo(getQueryParams());
+      // Define o URL do vídeo para o player
+      videoElement.src = `http://localhost:4000/api/v1/movies/${movieId}/stream`;
+
+      // Carregar o vídeo
+      videoElement.load();
     </script>
   </body>
 </html>

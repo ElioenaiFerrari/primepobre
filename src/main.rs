@@ -9,9 +9,11 @@ use actix_web::{
     get,
     http::header::RANGE,
     middleware::Logger,
-    web::{scope, Data, Path},
+    web::{scope, Bytes, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use tokio::sync::mpsc;
+use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 // use reqwest::Client;
 
 #[get("/movies")]
@@ -19,58 +21,49 @@ async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 
+async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, filepath: &String) {
+    let file = tokio::fs::File::open(filepath).await.unwrap();
+    let reader = tokio::io::BufReader::new(file);
+    let mut stream = tokio_util::io::ReaderStream::new(reader);
+    while let Some(item) = stream.next().await {
+        match tx.send(item).await {
+            Ok(_) => {}
+            Err(_) => break,
+        }
+    }
+}
+
+async fn stream_from_url(
+    tx: mpsc::Sender<Result<actix_web::web::Bytes, std::io::Error>>,
+    url: &String,
+) {
+    let client = reqwest::Client::new();
+    let mut res = client.get(url).send().await.unwrap();
+    while let Some(item) = res.chunk().await.unwrap() {
+        match tx.send(Ok(Bytes::from(item))).await {
+            Ok(_) => {}
+            Err(_) => break,
+        }
+    }
+}
+
 #[get("/movies/{id}/stream")]
 async fn get_movie(state: Data<State>, id: Path<String>, req: HttpRequest) -> impl Responder {
-    let movie = state.movies.iter().find(|m| m.id == id.to_string());
-    match movie {
-        Some(m) => {
-            // Create a reqwest client
-            // let client = Client::new();
-
-            // Get the range header if present
-            let range_header = req.headers().get(RANGE);
-
-            // // Make the request to the remote video URL with the range header
-            // let response = client
-            //     .get(video_url)
-            //     .header("Range", range.unwrap_or("bytes=0-"))
-            //     .send()
-            //     .await
-            //     .map_err(|_| HttpResponse::InternalServerError().finish())
-            //     .unwrap();
-
-            // if !response.status().is_success() {
-            //     return HttpResponse::NotFound().finish();
-            // }
-
-            // // Get the content range from the response
-
-            // // Create a stream of the response body
-            // let stream = response.bytes_stream();
-
-            // Build the response
-
-            // let content_range = response.headers().get("Content-Range").cloned();
-            // stream from file
-            let file = tokio::fs::File::open(&m.stream).await.unwrap();
-            let reader = tokio::io::BufReader::new(file);
-            let stream = tokio_util::io::ReaderStream::new(reader);
-
-            let mut http_response = HttpResponse::PartialContent()
-                .content_type(m.mime_type.clone())
-                .streaming(stream);
-
-            if let Some(content_range) = range_header {
-                http_response.headers_mut().insert(
-                    "Content-Range".parse().unwrap(),
-                    content_range.to_str().unwrap().parse().unwrap(),
-                );
+    let movies = state.movies.clone();
+    if let Some(movie) = movies.iter().cloned().find(|m| m.id == id.to_string()) {
+        let (tx, rx) = mpsc::channel(32);
+        actix_web::rt::spawn(async move {
+            match movie.source {
+                Source::File => stream_from_file(tx, &movie.stream).await,
+                Source::Url => stream_from_url(tx, &movie.stream).await,
             }
+        });
 
-            http_response
-        }
-        None => HttpResponse::NotFound().finish(),
+        return HttpResponse::PartialContent()
+            .content_type(movie.mime_type)
+            .streaming(ReceiverStream::new(rx));
     }
+    HttpResponse::NotFound().finish()
 }
 
 #[get("/series")]

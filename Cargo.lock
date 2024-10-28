@@ -1328,6 +1328,7 @@ dependencies = [
  "actix-web",
  "actix-web-prometheus",
  "env_logger",
+ "log",
  "reqwest",
  "serde",
  "serde_json",
