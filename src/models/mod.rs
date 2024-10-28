@@ -1,11 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Source {
+    #[serde(rename = "file")]
+    File,
+    #[serde(rename = "url")]
+    Url,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Movie {
     pub id: String,
     pub title: String,
     pub description: String,
-    pub video_url: String,
+    pub source: Source,
+    pub stream: String,
     pub thumbnail_url: String,
     pub duration: i32,
     pub mime_type: String,
@@ -39,7 +48,8 @@ pub struct Episode {
     pub number: i32,
     pub title: String,
     pub description: String,
-    pub video_url: String,
+    pub source: Source,
+    pub stream: String,
     pub thumbnail_url: String,
     pub duration: i32,
     pub mime_type: String,
