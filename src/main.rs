@@ -5,13 +5,21 @@ use models::*;
 
 use actix_web::{
     get,
-    web::{scope, Data},
+    web::{scope, Data, Path},
     App, HttpResponse, HttpServer, Responder,
 };
 
 #[get("/movies")]
 async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
+}
+#[get("/movies/{id}")]
+async fn get_movie(state: Data<State>, id: Path<String>) -> impl Responder {
+    let movie = state.movies.iter().find(|m| m.id == id.to_string());
+    match movie {
+        Some(m) => HttpResponse::Ok().json(m),
+        None => HttpResponse::NotFound().finish(),
+    }
 }
 
 #[get("/series")]
