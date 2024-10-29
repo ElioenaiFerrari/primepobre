@@ -28,7 +28,7 @@
         return urlParams.get(name);
       }
 
-      window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('DOMContentLoaded', async () => {
         // Obter o ID do filme da query string "id"
 
         const mimeType = getQueryParam('mimeType');
@@ -48,7 +48,7 @@
           const seasonId = getQueryParam('season_id');
           const episodeId = getQueryParam('episode_id');
 
-          videoElement.src = `http://localhost:4000/api/v1/series/${serieId}/seasons/1/episodes/1/stream`;
+          videoElement.src = `http://localhost:4000/api/v1/series/1/seasons/1/episodes/1/stream`;
           videoElement.type = mimeType;
         }
 

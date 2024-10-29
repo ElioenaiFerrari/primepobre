@@ -1327,6 +1327,7 @@ dependencies = [
  "actix-files",
  "actix-web",
  "actix-web-prometheus",
+ "bytes",
  "env_logger",
  "log",
  "reqwest",

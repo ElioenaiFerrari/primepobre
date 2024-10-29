@@ -5,11 +5,13 @@ use actix_cors::Cors;
 use actix_files::Files;
 use models::*;
 
+use bytes::Bytes;
+
 use actix_web::{
     get,
-    http::header::{ContentLength, RANGE},
+    http::header::{ContentLength, ACCEPT_RANGES},
     middleware::Logger,
-    web::{scope, Bytes, Data, Path},
+    web::{scope, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use tokio::sync::mpsc;
@@ -26,8 +28,8 @@ async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media
     let metadata = file.metadata().await.unwrap();
     let content_length = metadata.len();
     let reader = tokio::io::BufReader::new(file);
-    let mut stream = tokio_util::io::ReaderStream::new(reader);
     actix_web::rt::spawn(async move {
+        let mut stream = tokio_util::io::ReaderStream::new(reader);
         while let Some(item) = stream.next().await {
             match tx.send(item).await {
                 Ok(_) => {}
@@ -39,19 +41,21 @@ async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media
     content_length
 }
 
-async fn stream_from_url(
-    tx: mpsc::Sender<Result<actix_web::web::Bytes, std::io::Error>>,
-    url: &String,
-) -> u64 {
+async fn stream_from_url(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, url: &String) -> u64 {
     let client = reqwest::Client::new();
-    let mut res = client.get(url).send().await.unwrap();
+    let res = client.get(url).send().await.unwrap();
     let content_length = res.content_length().unwrap();
-    while let Some(item) = res.chunk().await.unwrap() {
-        match tx.send(Ok(Bytes::from(item))).await {
-            Ok(_) => {}
-            Err(_) => break,
+
+    actix_web::rt::spawn(async move {
+        let stream = res.bytes_stream();
+        let mut stream = stream;
+        while let Some(item) = stream.next().await {
+            match tx.send(Ok(item.unwrap())).await {
+                Ok(_) => {}
+                Err(_) => break,
+            }
         }
-    }
+    });
 
     content_length
 }
@@ -66,9 +70,16 @@ async fn stream_movie(state: Data<State>, id: Path<String>, req: HttpRequest) ->
             Source::Url => stream_from_url(tx, &movie.media).await,
         };
 
+        log::info!(
+            "Streaming movie: {} with size {}",
+            movie.title,
+            content_length
+        );
+
         return HttpResponse::PartialContent()
             .content_type(movie.mime_type)
             .insert_header(ContentLength(content_length as usize))
+            .insert_header((ACCEPT_RANGES, "bytes"))
             .streaming(ReceiverStream::new(rx));
     }
     HttpResponse::NotFound().finish()
@@ -94,6 +105,7 @@ async fn stream_serie_episode(
                 return HttpResponse::PartialContent()
                     .content_type(episode.mime_type)
                     .insert_header(ContentLength(content_length as usize))
+                    .insert_header((ACCEPT_RANGES, "bytes"))
                     .streaming(ReceiverStream::new(rx));
             }
         }
@@ -136,7 +148,7 @@ async fn main() -> std::io::Result<()> {
                             number: 1,
                             title: "Piloto".to_string(),
                             description: "Os Vingadores se reúnem para desfazer as ações de Thanos e restaurar o universo.".to_string(),
-                            media: "https://videos.pexels.com/video-files/28851690/12495824_360_640_30fps.mp4".to_string(),
+                            media: "https://videos.pexels.com/video-files/28828145/12487871_1440_2560_60fps.mp4".to_string(),
                             source: Source::Url,
                             thumbnail_url: "https://tm.ibxk.com.br/2022/03/07/07013050568001.jpg".to_string(),
                             duration: 180,
