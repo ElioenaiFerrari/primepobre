@@ -21,8 +21,8 @@ async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 
-async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, filepath: &String) {
-    let file = tokio::fs::File::open(filepath).await.unwrap();
+async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media: &String) {
+    let file = tokio::fs::File::open(media).await.unwrap();
     let reader = tokio::io::BufReader::new(file);
     let mut stream = tokio_util::io::ReaderStream::new(reader);
     while let Some(item) = stream.next().await {
@@ -54,8 +54,8 @@ async fn get_movie(state: Data<State>, id: Path<String>, req: HttpRequest) -> im
         let (tx, rx) = mpsc::channel(32);
         actix_web::rt::spawn(async move {
             match movie.source {
-                Source::File => stream_from_file(tx, &movie.stream).await,
-                Source::Url => stream_from_url(tx, &movie.stream).await,
+                Source::File => stream_from_file(tx, &movie.media).await,
+                Source::Url => stream_from_url(tx, &movie.media).await,
             }
         });
 
@@ -101,7 +101,7 @@ async fn main() -> std::io::Result<()> {
                             number: 1,
                             title: "Piloto".to_string(),
                             description: "Os Vingadores se reúnem para desfazer as ações de Thanos e restaurar o universo.".to_string(),
-                            stream: "https://videos.pexels.com/video-files/28851690/12495824_360_640_30fps.mp4".to_string(),
+                            media: "https://videos.pexels.com/video-files/28851690/12495824_360_640_30fps.mp4".to_string(),
                             source: Source::Url,
                             thumbnail_url: "https://tm.ibxk.com.br/2022/03/07/07013050568001.jpg".to_string(),
                             duration: 180,
@@ -120,7 +120,7 @@ async fn main() -> std::io::Result<()> {
             title: "Vingadores - Ultimato".to_string(),
             thumbnail_url:"https://ichef.bbci.co.uk/ace/ws/640/cpsprodpb/BF0D/production/_106090984_2e39b218-c369-452e-b5be-d2476f9d8728.jpg.webp".to_string(),
             description: "Os Vingadores se reúnem para desfazer as ações de Thanos e restaurar o universo.".to_string(),
-            stream: "db/movies/radio_pesadelo.mkv".to_string(),
+            media: "db/movies/radio_pesadelo.mkv".to_string(),
             source: Source::File,
             duration: 180,
             mime_type: "video/mp4".to_string(),
