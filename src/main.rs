@@ -7,7 +7,7 @@ use models::*;
 
 use actix_web::{
     get,
-    http::header::RANGE,
+    http::header::{ContentLength, RANGE},
     middleware::Logger,
     web::{scope, Bytes, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
@@ -21,47 +21,82 @@ async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 
-async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media: &String) {
+async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media: &String) -> u64 {
     let file = tokio::fs::File::open(media).await.unwrap();
+    let metadata = file.metadata().await.unwrap();
+    let content_length = metadata.len();
     let reader = tokio::io::BufReader::new(file);
     let mut stream = tokio_util::io::ReaderStream::new(reader);
-    while let Some(item) = stream.next().await {
-        match tx.send(item).await {
-            Ok(_) => {}
-            Err(_) => break,
+    actix_web::rt::spawn(async move {
+        while let Some(item) = stream.next().await {
+            match tx.send(item).await {
+                Ok(_) => {}
+                Err(_) => break,
+            }
         }
-    }
+    });
+
+    content_length
 }
 
 async fn stream_from_url(
     tx: mpsc::Sender<Result<actix_web::web::Bytes, std::io::Error>>,
     url: &String,
-) {
+) -> u64 {
     let client = reqwest::Client::new();
     let mut res = client.get(url).send().await.unwrap();
+    let content_length = res.content_length().unwrap();
     while let Some(item) = res.chunk().await.unwrap() {
         match tx.send(Ok(Bytes::from(item))).await {
             Ok(_) => {}
             Err(_) => break,
         }
     }
+
+    content_length
 }
 
 #[get("/movies/{id}/stream")]
-async fn get_movie(state: Data<State>, id: Path<String>, req: HttpRequest) -> impl Responder {
+async fn stream_movie(state: Data<State>, id: Path<String>, req: HttpRequest) -> impl Responder {
     let movies = state.movies.clone();
     if let Some(movie) = movies.iter().cloned().find(|m| m.id == id.to_string()) {
-        let (tx, rx) = mpsc::channel(32);
-        actix_web::rt::spawn(async move {
-            match movie.source {
-                Source::File => stream_from_file(tx, &movie.media).await,
-                Source::Url => stream_from_url(tx, &movie.media).await,
-            }
-        });
+        let (tx, rx) = mpsc::channel(1024);
+        let content_length = match movie.source {
+            Source::File => stream_from_file(tx, &movie.media).await,
+            Source::Url => stream_from_url(tx, &movie.media).await,
+        };
 
         return HttpResponse::PartialContent()
             .content_type(movie.mime_type)
+            .insert_header(ContentLength(content_length as usize))
             .streaming(ReceiverStream::new(rx));
+    }
+    HttpResponse::NotFound().finish()
+}
+
+#[get("/series/{serie_id}/seasons/{season_id}/episodes/{episode_id}/stream")]
+async fn stream_serie_episode(
+    state: Data<State>,
+    path: Path<(String, String, String)>,
+    req: HttpRequest,
+) -> impl Responder {
+    let (serie_id, season_id, episode_id) = path.into_inner();
+    let series = state.series.clone();
+    if let Some(serie) = series.iter().cloned().find(|s| s.id == serie_id) {
+        if let Some(season) = serie.seasons.iter().cloned().find(|s| s.id == season_id) {
+            if let Some(episode) = season.episodes.iter().cloned().find(|e| e.id == episode_id) {
+                let (tx, rx) = mpsc::channel(1024);
+                let content_length = match episode.source {
+                    Source::File => stream_from_file(tx, &episode.media).await,
+                    Source::Url => stream_from_url(tx, &episode.media).await,
+                };
+
+                return HttpResponse::PartialContent()
+                    .content_type(episode.mime_type)
+                    .insert_header(ContentLength(content_length as usize))
+                    .streaming(ReceiverStream::new(rx));
+            }
+        }
     }
     HttpResponse::NotFound().finish()
 }
@@ -148,7 +183,8 @@ async fn main() -> std::io::Result<()> {
                 scope("/api/v1")
                     .service(get_movies)
                     .service(get_series)
-                    .service(get_movie),
+                    .service(stream_movie)
+                    .service(stream_serie_episode),
             )
             .service(Files::new("/", "public").show_files_listing())
     })

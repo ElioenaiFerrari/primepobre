@@ -28,21 +28,23 @@
         return urlParams.get(name);
       }
 
-      // Obter o ID do filme da query string "id"
-      const movieId = getQueryParam('id');
-      const mimeType = getQueryParam('mimeType');
-      const source = getQueryParam('source');
-      const thumbnailUrl = getQueryParam('thumbnail_url');
+      window.addEventListener('DOMContentLoaded', () => {
+        // Obter o ID do filme da query string "id"
+        const resourceId = getQueryParam('id');
+        const mimeType = getQueryParam('mimeType');
+        const source = getQueryParam('source');
+        const thumbnailUrl = getQueryParam('thumbnail_url');
 
-      // Definir a URL do vídeo se o movieId estiver disponível
-      const videoElement = document.getElementById('movie-video');
-      videoElement.poster = thumbnailUrl;
+        // Definir a URL do vídeo se o resourceId estiver disponível
+        const videoElement = document.getElementById('movie-video');
+        videoElement.poster = thumbnailUrl;
 
-      // Define o URL do vídeo para o player
-      videoElement.src = `http://localhost:4000/api/v1/movies/${movieId}/stream`;
+        // Define o URL do vídeo para o player
+        videoElement.src = `http://localhost:4000/api/v1/${source}/${resourceId}/stream`;
+        videoElement.type = mimeType;
 
-      // Carregar o vídeo
-      videoElement.load();
+        videoElement.load();
+      });
     </script>
   </body>
 </html>
