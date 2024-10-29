@@ -9,7 +9,7 @@ use bytes::Bytes;
 
 use actix_web::{
     get,
-    http::header::{ContentLength, ACCEPT_RANGES},
+    http::header::{ContentLength, ACCEPT_RANGES, CONTENT_LENGTH},
     middleware::Logger,
     web::{scope, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
@@ -24,17 +24,34 @@ async fn get_movies(state: Data<State>) -> impl Responder {
     HttpResponse::Ok().json(&state.movies)
 }
 
-async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media: &String) -> u64 {
-    let file = tokio::fs::File::open(media).await.unwrap();
-    let metadata = file.metadata().await.unwrap();
+async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media: &str) -> u64 {
+    // Tenta abrir o arquivo e obter seus metadados
+    let file = match tokio::fs::File::open(media).await {
+        Ok(file) => file,
+        Err(e) => {
+            log::error!("Erro ao abrir o arquivo: {:?}", e);
+            return 0;
+        }
+    };
+
+    let metadata = match file.metadata().await {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            log::error!("Erro ao obter metadados do arquivo: {:?}", e);
+            return 0;
+        }
+    };
     let content_length = metadata.len();
+
     let reader = tokio::io::BufReader::new(file);
+    let mut stream = ReaderStream::new(reader);
+
+    // Envia os bytes do arquivo através do canal mpsc
     actix_web::rt::spawn(async move {
-        let mut stream = ReaderStream::new(reader);
         while let Some(item) = stream.next().await {
-            match tx.send(item).await {
-                Ok(_) => {}
-                Err(_) => break,
+            if tx.send(item).await.is_err() {
+                // Se o envio falhar, encerra o loop
+                break;
             }
         }
     });
@@ -65,7 +82,7 @@ async fn stream_from_url(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, url: &
 async fn stream_movie(state: Data<State>, id: Path<String>, req: HttpRequest) -> impl Responder {
     let movies = state.movies.clone();
     if let Some(movie) = movies.iter().cloned().find(|m| m.id == id.to_string()) {
-        let (tx, rx) = mpsc::channel(1024);
+        let (tx, rx) = mpsc::channel(1024 * 1024);
         let content_length = match movie.source {
             Source::File => stream_from_file(tx, &movie.media).await,
             Source::Url => stream_from_url(tx, &movie.media).await,
@@ -79,7 +96,7 @@ async fn stream_movie(state: Data<State>, id: Path<String>, req: HttpRequest) ->
 
         return HttpResponse::PartialContent()
             .content_type(movie.mime_type)
-            .insert_header(ContentLength(content_length as usize))
+            .insert_header((CONTENT_LENGTH, content_length))
             .insert_header((ACCEPT_RANGES, "bytes"))
             .streaming(ReceiverStream::new(rx));
     }
@@ -105,7 +122,7 @@ async fn stream_serie_episode(
 
                 return HttpResponse::PartialContent()
                     .content_type(episode.mime_type)
-                    .insert_header(ContentLength(content_length as usize))
+                    .insert_header((CONTENT_LENGTH, content_length))
                     .insert_header((ACCEPT_RANGES, "bytes"))
                     .streaming(ReceiverStream::new(rx));
             }
@@ -127,7 +144,7 @@ struct State {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("error"));
 
     let series = vec![
         Serie{
