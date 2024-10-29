@@ -14,8 +14,9 @@ use actix_web::{
     web::{scope, Data, Path},
     App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use tokio::sync::mpsc;
+use tokio::{io::BufReader, sync::mpsc};
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
+use tokio_util::io::ReaderStream;
 // use reqwest::Client;
 
 #[get("/movies")]
@@ -27,9 +28,9 @@ async fn stream_from_file(tx: mpsc::Sender<Result<Bytes, std::io::Error>>, media
     let file = tokio::fs::File::open(media).await.unwrap();
     let metadata = file.metadata().await.unwrap();
     let content_length = metadata.len();
-    let reader = tokio::io::BufReader::new(file);
+    let reader = BufReader::new(file);
     actix_web::rt::spawn(async move {
-        let mut stream = tokio_util::io::ReaderStream::new(reader);
+        let mut stream = ReaderStream::new(reader);
         while let Some(item) = stream.next().await {
             match tx.send(item).await {
                 Ok(_) => {}
