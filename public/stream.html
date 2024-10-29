@@ -12,7 +12,7 @@
   <body class="bg-gray-900 text-white">
     <div class="flex items-center justify-center min-h-screen">
       <video
-        id="movie-video"
+        id="media-video"
         controls
         autoplay
         class="w-full max-w-4xl rounded-lg shadow-lg max-h-96"
@@ -30,18 +30,27 @@
 
       window.addEventListener('DOMContentLoaded', () => {
         // Obter o ID do filme da query string "id"
-        const resourceId = getQueryParam('id');
+
         const mimeType = getQueryParam('mimeType');
         const source = getQueryParam('source');
         const thumbnailUrl = getQueryParam('thumbnail_url');
 
         // Definir a URL do vídeo se o resourceId estiver disponível
-        const videoElement = document.getElementById('movie-video');
+        const videoElement = document.getElementById('media-video');
         videoElement.poster = thumbnailUrl;
 
-        // Define o URL do vídeo para o player
-        videoElement.src = `http://localhost:4000/api/v1/${source}/${resourceId}/stream`;
-        videoElement.type = mimeType;
+        if (source === 'movies') {
+          const movieId = getQueryParam('id');
+          videoElement.src = `http://localhost:4000/api/v1/movies/${movieId}/stream`;
+          videoElement.type = mimeType;
+        } else {
+          const serieId = getQueryParam('id');
+          const seasonId = getQueryParam('season_id');
+          const episodeId = getQueryParam('episode_id');
+
+          videoElement.src = `http://localhost:4000/api/v1/series/${serieId}/seasons/${seasonId}/episodes/${episodeId}/stream`;
+          videoElement.type = mimeType;
+        }
 
         videoElement.load();
       });
